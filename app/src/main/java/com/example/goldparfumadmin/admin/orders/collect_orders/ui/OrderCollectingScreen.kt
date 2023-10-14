@@ -40,6 +40,8 @@ fun OrderCollectingScreen(
             Text(text = "Получить заказы")
         }
 
+         val str = "str"
+
         if (showAlertDialog)
             AlertDialog(
                 text = { Text(text = "Обновление базы данных заказов, генерация файлов с заказами.\nПродолжить?") },

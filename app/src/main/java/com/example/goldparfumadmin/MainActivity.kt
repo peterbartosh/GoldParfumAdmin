@@ -26,6 +26,8 @@ class MainActivity : ComponentActivity() {
 
                 //scheduler.schedule()
 
+
+
                 val navController = rememberNavController()
                 AdminNavHost(navController = navController)
 
