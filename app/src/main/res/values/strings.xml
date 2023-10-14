@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Gold\nAdmin</string>
+    <string name="add_multiple_alert_message">Будьте осторожны с этой операцией.
+            \nФормат файла должен соответствовать оговоренным правилам.
+            \nПеред выполнением операции проверьте корректность формата файла, и введённых данных.</string>
+    <string name="delete_multiple_alert_message">Будьте осторожны с этой операцией.
+                        \nПеред выполнением операции проверьте корректность введённых данных.</string>
+</resources>
