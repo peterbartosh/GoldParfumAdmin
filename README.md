@@ -1,5 +1,5 @@
 # GoldParfumAdmin
-Admin app for managing PerfumeShop data.
+Admin application for managing PerfumeShop data.
 
 
 # Home screen
