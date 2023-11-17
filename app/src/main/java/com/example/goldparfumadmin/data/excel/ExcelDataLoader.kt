@@ -28,45 +28,37 @@ class ExcelDataLoader(
     val errorsCounter = AtomicInteger(0)
 
 
-    suspend fun getRowsAmount(): Int? {
-        //var amount = 0
-        return withContext(Dispatchers.IO) {
+    suspend fun getRowsAmount() = withContext(Dispatchers.IO) {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 val xb = XSSFWorkbook(inputStream)
                 val sheet = xb.getSheetAt(0)
                 sheet.lastRowNum - 2
             }
         }
-        //return amount
-    }
+
 
     fun getFileName(): String {
+        val cursor = context.contentResolver.query(
+            uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
+        )
 
-        //withContext(Dispatchers.IO) {
-
-            val cursor = context.contentResolver.query(
-                uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
-            )
-
-            return if (cursor != null) {
-                cursor.moveToFirst()
-                if (cursor.count == 0)
-                    showToast(context, "The given Uri doesn't represent any file")
-                val displayNameColumnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                val displayName = cursor.getString(displayNameColumnIndex)
-                cursor.close()
-                displayName
-            } else {
-                showToast(context, "Failed to obtain cursor from the content resolver")
-                "not found"
-            }
-       // }
+        return if (cursor != null) {
+            cursor.moveToFirst()
+            if (cursor.count == 0)
+                showToast(context, "The given Uri doesn't represent any file")
+            val displayNameColumnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val displayName = cursor.getString(displayNameColumnIndex)
+            cursor.close()
+            displayName
+        } else {
+            showToast(context, "Failed to obtain cursor from the content resolver")
+            "not found"
+        }
     }
 
     suspend fun parse(
         volume: Double?,
-        scope: CoroutineScope,
-        dollarCurrency: Double
+        scope: CoroutineScope
     ) {
         withContext(Dispatchers.IO) {
 
@@ -81,108 +73,83 @@ class ExcelDataLoader(
 
             val startIndex = parser.getStartIndex()
 
-            //Log.d("START_INDEX", "parse: $startIndex")
-
-            //Log.d(TAG, "parse: ${productType.name}")
-
             when (productType) {
                 ProductType.Compact -> {
 
                     val initDeferred = async {
-                        parser.initialize(sheet = sheet, volume = volume, dollarCurrency = dollarCurrency)
+                        parser.initialize(sheet = sheet, volume = volume)
                     }
                     val volumes = initDeferred.await()
-
-                    Log.d("SKOAHUSI", "parse: $volumes")
 
                     var curVolumeInd = 0
                     var splitting = false
 
-                    val map = mutableMapOf<Double, MutableList<(Double) -> Unit>>()
+                    val volumesAndAmounts = mutableMapOf<Double, MutableList<(Double) -> Unit>>()
 
                     volumes.forEach { v ->
-                        map[v] = mutableListOf()
+                        volumesAndAmounts[v] = mutableListOf()
                     }
 
-                        sheet?.drop(startIndex)?.forEachIndexed { ind, row ->
+                    sheet?.drop(startIndex)?.forEachIndexed { ind, row ->
 
-                            //Log.d("YSUGAUS", "parse: $ind) ${row?.getCell(0)?.numericCellValue}, vol = $vol")
+                        if (curVolumeInd <= 6)
+                            try {
+                                val id = row?.getCell(0)?.numericCellValue?.toInt()
+                                if (id != null && id != 0) {
 
-                            if (curVolumeInd <= 6)
-                                try {
-                                    val id = row?.getCell(0)?.numericCellValue?.toInt()
-                                    if (id != null && id != 0) {
+                                splitting = false
+                                volumesAndAmounts[volumes[curVolumeInd]]?.add { vol ->
+                                        val product = parser.parse(row, vol, ind)
 
-                                        splitting = false
-                                        map[volumes[curVolumeInd]]?.add { vol ->
-                                                val product = parser.parse(row, vol, ind)
+                                        if (product == null)
+                                            errorsCounter.incrementAndGet()
+                                        else if (!products.add(product))
+                                            errorsCounter.incrementAndGet()
 
-                                                if (product == null)
-                                                    errorsCounter.incrementAndGet()
-                                                else if (!products.add(product))
-                                                    errorsCounter.incrementAndGet()
-
-                                            }
-
-                                    } else {
-                                        if (!splitting) {
-                                            Log.d("DONE_TAG", "parse: $ind) $curVolumeInd")
-                                            curVolumeInd++
-                                            splitting = true
-                                        }
                                     }
-                                } catch (e: Exception) {
-                                    Log.d(TAG, "parse: ${e.message}")
+                                } else {
+                                    if (!splitting) {
+                                        curVolumeInd++
+                                        splitting = true
+                                    }
                                 }
-                        }
-
-                        map.map{ (key, value) ->
-                            async {
-                                value.forEach { func ->
-                                    func.invoke(key)
-                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "parse: ${e.message}")
                             }
-                        }.awaitAll()
+                    }
 
-
+                    volumesAndAmounts.map{ (key, value) ->
+                        async {
+                            value.forEach { func ->
+                                func.invoke(key)
+                            }
+                        }
+                    }.awaitAll()
                 }
 
                 else -> {
 
-                    val initDeferred = async {
-                        parser.initialize(sheet = sheet, volume = volume, dollarCurrency = dollarCurrency)
+                    async {
+                        parser.initialize(sheet = sheet, volume = volume)
+                    }.await()
+
+                    val deferreds = sheet?.drop(startIndex)?.mapIndexed { ind, row ->
+                        scope.async {
+                            val product = parser.parse(
+                                row = row,
+                                volume = volume,
+                                ind = ind
+                            )
+                            if (product == null)
+                                errorsCounter.incrementAndGet()
+                            else if (!products.add(product))
+                                errorsCounter.incrementAndGet()
+                            else 0
+                        }
                     }
-
-                    initDeferred.await()
-
-//                    val deferred =
-//                        scope.async {
-
-                            val deferreds = sheet?.drop(startIndex)
-                                //?.take(5000)
-                                ?.mapIndexed { ind, row ->
-                                scope.async {
-                                    val product = parser.parse(
-                                        row = row,
-                                        volume = volume,
-                                        ind = ind
-                                    )
-                                    if (product == null)
-                                        errorsCounter.incrementAndGet()
-                                    else if (!products.add(product))
-                                        errorsCounter.incrementAndGet()
-                                    else 0
-                                }
-                            }
-                            deferreds?.awaitAll()
-                       // }
-
-                    //deferred.await()
+                    deferreds?.awaitAll()
                 }
             }
-
-            //products.removeIf { it == null }
-
         }
     }
 }

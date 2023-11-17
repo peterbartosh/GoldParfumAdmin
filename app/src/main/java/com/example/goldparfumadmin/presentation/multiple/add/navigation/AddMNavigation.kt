@@ -1,13 +1,12 @@
-package com.example.goldparfumadmin.admin.multiple.add.navigation
+package com.example.goldparfumadmin.presentation.multiple.add.navigation
 
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavOptions
 import androidx.navigation.compose.composable
-import com.example.goldparfumadmin.admin.multiple.add.ui.AddMScreen
-import com.example.goldparfumadmin.admin.multiple.add.ui.AddMViewModel
+import com.example.goldparfumadmin.presentation.multiple.add.ui.AddMScreen
+import com.example.goldparfumadmin.presentation.multiple.add.ui.AddMViewModel
 
 const val addMRoute = "addM"
 

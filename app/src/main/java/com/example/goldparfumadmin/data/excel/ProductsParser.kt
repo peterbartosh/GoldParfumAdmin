@@ -5,7 +5,7 @@ import org.apache.poi.ss.usermodel.Row
 import org.apache.poi.ss.usermodel.Sheet
 
 interface ProductsParser {
-    fun initialize(sheet: Sheet?, volume: Double?, dollarCurrency : Double) : List<Double>
+    fun initialize(sheet: Sheet?, volume: Double?) : List<Double>
 
     fun getStartIndex() : Int
 

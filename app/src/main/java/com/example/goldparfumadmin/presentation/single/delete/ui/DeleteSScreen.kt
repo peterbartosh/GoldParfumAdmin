@@ -1,6 +1,7 @@
 package com.example.goldparfumadmin.presentation.single.delete.ui
 
-import android.util.Log
+import android.content.Context
+import android.net.ConnectivityManager
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -21,11 +22,13 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import com.example.goldparfumadmin.data.utils.getSafe
 import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.components.Loading
 import com.example.goldparfumadmin.presentation.components.OptionsList
 import com.example.goldparfumadmin.presentation.components.PickProductData
+import com.example.goldparfumadmin.presentation.components.SubmitButton
 import com.example.goldparfumadmin.presentation.single.add.ui.InputField
 import com.example.goldparfumadmin.presentation.single.add.ui.MyAlertDialog
 import com.example.goldparfumadmin.presentation.single.add.ui.ProductList
@@ -38,20 +41,22 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
 
     val keyboard = LocalSoftwareKeyboardController.current
 
+    val uiState = deleteSViewModel.uiState.collectAsState()
+
     val idState = remember {
         mutableStateOf("-1")
-    }
-
-    val volumeState = remember {
-        mutableStateOf("")
     }
 
     val selectedTypeInd = remember {
         mutableStateOf(ProductType.NotSpecified.ordinal)
     }
 
-    val selectedVolumeInd = remember {
+    val selectedVolumeInd = remember(selectedTypeInd.value) {
         mutableStateOf(-1)
+    }
+
+    val volumeState = remember(selectedTypeInd.value) {
+        mutableStateOf("")
     }
 
     val validInputState = remember(
@@ -83,10 +88,8 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
         mutableStateOf(true)
     }
 
-    val showTableState = remember(deleteSViewModel.isSuccess.value){
-        mutableStateOf(
-            deleteSViewModel.isSuccess.value
-        )
+    val showTableState = remember(uiState.value){
+        mutableStateOf(uiState.value is UiState.Success)
     }
 
     val submitEnabled = remember(showTableState.value, inputStateChanged.value) {
@@ -94,10 +97,6 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
     }
 
     val showAlertDialog = remember {
-        mutableStateOf(false)
-    }
-
-    val showToastState = remember {
         mutableStateOf(false)
     }
 
@@ -148,7 +147,14 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
                                     volumeState.value.isNotEmpty()
                                 ) && idState.value.isNotEmpty(),
                 onClick = {
+                    val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
+                    val connected = manager.activeNetwork
+
+                    if (connected == null) {
+                        showToast(context, "Ошибка.\nВы не подключены к сети.")
+                        return@Button
+                    }
                     keyboard?.hide()
                     inputStateChanged.value = false
                     val volume = try {
@@ -160,24 +166,18 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
 
                     } catch (e : Exception){ "" }
 
-                    Log.d("SPKCFOPJAS", "${selectedTypeInd.value}.$volume.${idState.value}")
-
                     deleteSViewModel.findProduct(
                         productId = "${selectedTypeInd.value}.$volume.${idState.value}",
-                        context = context
+                        onError = { message -> showToast(context, "Ошибка.\n$message") }
                     )
             }) {
                 Text(text = "Найти продукт")
             }
 
-
-            if (deleteSViewModel.isLoading.value)
-                Loading()
-
-            if (showTableState.value) {
-                val p = deleteSViewModel.product.collectAsState().value
-                if (p != null) ProductList(product = p)
-            }
+            if (showTableState.value)
+                deleteSViewModel.product.collectAsState().value?.let { product ->
+                    ProductList(product = product)
+                }
 
             if (showAlertDialog.value) {
                 val type = ProductType.getType(selectedTypeInd.value)
@@ -190,8 +190,11 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
                     text = "Удаление продукта типа ${type.toRus()} объёмом $volume (мл).\nВыполнить?",
                     showAlertDialog = showAlertDialog,
                     onConfirmClick = {
-                        showToastState.value = true
-                        deleteSViewModel.deleteProduct("${selectedTypeInd.value}.$volume.${idState.value}")
+                        deleteSViewModel.deleteProduct(
+                            productId = "${selectedTypeInd.value}.$volume.${idState.value}",
+                            onSuccess = { showToast(context, "Продукт удалён") },
+                            onFailure = { message -> showToast(context, "Ошибка.\n$message") }
+                        )
                     }
                 )
             }
@@ -199,25 +202,18 @@ fun DeleteSScreen(deleteSViewModel: DeleteSViewModel) {
 
         }
 
-        if (showToastState.value)
-            if (!deleteSViewModel.isLoading.value) {
-                if (deleteSViewModel.isSuccess.value)
-                    showToast(context, "Продукт удалён")
-                else
-                    showToast(context, "Ошибка. Продукт не удалён")
-                showToastState.value = false
-            }
 
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            enabled = validInputState.value && submitEnabled.value,
-            onClick = { showAlertDialog.value = true }
+        SubmitButton(
+            text = "Удалить продукт",
+            enabled = validInputState.value && submitEnabled.value
         ) {
-            Text(text = "Удалить продукт")
+            showAlertDialog.value = true
         }
 
 
     }
+
+    if (uiState.value is UiState.Loading) Loading()
 
 
 }

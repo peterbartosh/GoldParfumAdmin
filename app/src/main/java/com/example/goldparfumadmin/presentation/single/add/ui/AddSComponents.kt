@@ -41,6 +41,7 @@ fun MyAlertDialog(
     onConfirmClick : () -> Unit,
     text: String = ""
 ) {
+    if (showAlertDialog.value)
     AlertDialog(
         title = { Text(text = "Подтверждение действия") },
         text = { Text(text = text) },
@@ -105,7 +106,6 @@ fun TableScreen(tableData : List<Pair<String, String>>) {
                    //  .border(1.dp, Color.Black)
             ) {
                 TableCell(text = id, weight = column1Weight)
-               // Divider()
                 TableCell(text = text, weight = column2Weight)
             }
         }
@@ -127,13 +127,6 @@ fun ProductList(product: Product) {
 
     TableScreen(listOfData)
 
-
-//    Table(
-//        modifier = Modifier,
-//        content = listOfData,
-//        cellContent = { f, s ->
-//            Text("$f;$s")
-//        })
 }
 
 @Composable

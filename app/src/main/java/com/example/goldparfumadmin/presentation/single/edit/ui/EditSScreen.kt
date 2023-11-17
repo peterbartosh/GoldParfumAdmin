@@ -1,5 +1,7 @@
 package com.example.goldparfumadmin.presentation.single.edit.ui
 
+import android.content.Context.*
+import android.net.ConnectivityManager
 import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,11 +26,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.goldparfumadmin.data.model.Product
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import com.example.goldparfumadmin.data.utils.getSafe
 import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.components.Loading
 import com.example.goldparfumadmin.presentation.components.OptionsList
 import com.example.goldparfumadmin.presentation.components.PickProductData
+import com.example.goldparfumadmin.presentation.components.SubmitButton
 import com.example.goldparfumadmin.presentation.single.add.ui.EditList
 import com.example.goldparfumadmin.presentation.single.add.ui.InputField
 import com.example.goldparfumadmin.presentation.single.add.ui.MyAlertDialog
@@ -55,6 +59,8 @@ fun updateStates(
 fun EditSScreen(editSViewModel: EditSViewModel) {
 
     val context = LocalContext.current
+
+    val uiState = editSViewModel.uiState.collectAsState()
 
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -84,11 +90,11 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
         mutableStateOf(ProductType.NotSpecified.ordinal)
     }
 
-    val selectedVolumeInd = remember {
+    val selectedVolumeInd = remember(selectedTypeInd.value) {
         mutableStateOf(-1)
     }
 
-    val volumeState = remember {
+    val volumeState = remember(selectedTypeInd.value) {
         mutableStateOf("")
     }
 
@@ -136,8 +142,8 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
         mutableStateOf(false)
     }
 
-    val showTableState = remember(editSViewModel.isSuccess.value){
-        mutableStateOf(editSViewModel.isSuccess.value)
+    val showTableState = remember(uiState.value){
+        mutableStateOf(uiState.value is UiState.Success)
     }
 
 
@@ -146,10 +152,6 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
     }
 
     val showAlertDialog = remember {
-        mutableStateOf(false)
-    }
-
-    val showToastState = remember {
         mutableStateOf(false)
     }
 
@@ -202,6 +204,15 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
                                 volumeState.value.isNotEmpty()
                         ) && idState.value.isNotEmpty(),
                 onClick = {
+                    val manager = context.getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+
+                    val connected = manager.activeNetwork
+
+                    if (connected == null) {
+                        showToast(context, "Ошибка.\nВы не подключены к сети.")
+                        return@Button
+                    }
+
                     keyboard?.hide()
                     inputStateChanged.value = false
 
@@ -213,14 +224,12 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
 
                     editSViewModel.findProduct(
                         productId = "${selectedTypeInd.value}.$volume.${idState.value}",
-                        context = context
+                        onFailure = { message -> showToast(context, "Ошибка.\n$message") }
                     )
                     updateTableState.value = true
                 }) {
                 Text(text = "Найти продукт")
             }
-
-            if (editSViewModel.isLoading.value) Loading()
 
             if (showTableState.value) {
                 val prod = editSViewModel.product.collectAsState().value
@@ -252,7 +261,6 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
                     text = "Изменение продукта типа ${type.toRus()} объёмом $volume.\nВыполнить?",
                     showAlertDialog = showAlertDialog,
                     onConfirmClick = {
-                        showToastState.value = true
 
                         val oldId = "${selectedTypeInd.value}.${volume?.toInt()}.${idState.value}"
                         val newId = "${selectedTypeInd.value}.${volume?.toInt()}.${idToEditState.value}"
@@ -265,7 +273,12 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
                                 cashlessPrice = cashlessPriceState.value.toDouble(),
                                 isOnHand = isOnHandState.value
                             )
-                            editSViewModel.updateProduct(productId = oldId, updatedProduct = product)
+                            editSViewModel.updateProduct(
+                                productId = oldId,
+                                updatedProduct = product,
+                                onSuccess = { showToast(context, "Продукт обновлён") },
+                                onFailure = { message -> showToast(context, "Ошибка.\n$message") }
+                            )
                         } catch (e : Exception){
                             showToast(context, "Ошибка.\nВведены некорректные данные")
                             Log.d("ERROR_ERROR", "EditSScreen: ${e.message}")
@@ -274,24 +287,17 @@ fun EditSScreen(editSViewModel: EditSViewModel) {
             }
         }
 
-        if (showToastState.value)
-        if (!editSViewModel.isLoading.value) {
-            if (editSViewModel.isSuccess.value)
-                showToast(context, "Продукт обновлён")
-            else
-                showToast(context, "Ошибка. Продукт не обновлён")
-            showToastState.value = false
-        }
-
-        Button(
-            modifier = Modifier.fillMaxWidth(),
-            enabled = validInputState.value && submitEnabled.value,
-            onClick = { showAlertDialog.value = true }
+        SubmitButton(
+            text = "Изменить продукт",
+            enabled = validInputState.value && submitEnabled.value
         ) {
-            Text(text = "Изменить продукт")
+            showAlertDialog.value = true
         }
 
     }
+
+    if (uiState.value is UiState.Loading) Loading()
+
 
 
 }

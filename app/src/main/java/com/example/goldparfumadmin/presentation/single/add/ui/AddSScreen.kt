@@ -8,10 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -20,19 +18,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.goldparfumadmin.data.model.Product
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import com.example.goldparfumadmin.data.utils.getSafe
 import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.components.Loading
 import com.example.goldparfumadmin.presentation.components.OptionsList
 import com.example.goldparfumadmin.presentation.components.PickProductData
-import com.example.goldparfumadmin.presentation.theme.Gold
+import com.example.goldparfumadmin.presentation.components.SubmitButton
 
 @Composable
 fun AddSScreen(addSViewModel: AddSViewModel) {
 
     val context = LocalContext.current
 
-    //val keyboard = LocalSoftwareKeyboardController.current
+    val uiState = addSViewModel.uiState.collectAsState()
 
     val idState = remember {
         mutableStateOf("1")
@@ -56,11 +55,11 @@ fun AddSScreen(addSViewModel: AddSViewModel) {
         mutableStateOf(ProductType.NotSpecified.ordinal)
     }
 
-    val selectedVolumeInd = remember {
+    val selectedVolumeInd = remember(selectedTypeInd.value) {
         mutableStateOf(-1)
     }
 
-    val volumeState = remember {
+    val volumeState = remember(selectedTypeInd.value) {
         mutableStateOf("")
     }
 
@@ -104,8 +103,6 @@ fun AddSScreen(addSViewModel: AddSViewModel) {
 
         )
     }
-
-    if (addSViewModel.isLoading.value) Loading()
 
 
     Column(
@@ -165,10 +162,15 @@ fun AddSScreen(addSViewModel: AddSViewModel) {
                                 brand = brandState.value.lowercase(),
                                 cashPrice = cashPriceState.value.toDouble(),
                                 cashlessPrice = cashlessPriceState.value.toDouble(),
-                                //sex = sexes[sexState.value].name,
                                 isOnHand = isOnHandState.value
                             )
-                            addSViewModel.addProduct(product)
+                            addSViewModel.addProduct(
+                                product = product,
+                                onSuccess = { showToast(context, "Продукт добавлен") },
+                                onFailure = { message ->
+                                    showToast(context, "Ошибка.\nПродукт не добавлен\n$message")
+                                }
+                            )
                         } catch (e: Exception) {
                             showToast(context, "Ошибка.\nПроверьте корректность данных")
                             Log.d("ERROR_ERROR", "AddSScreen: ${e.message}")
@@ -179,30 +181,21 @@ fun AddSScreen(addSViewModel: AddSViewModel) {
 
         }
 
-
-        if (showToastState.value)
-            if (!addSViewModel.isLoading.value) {
-                if (addSViewModel.isSuccess.value)
-                    showToast(context, "Продукт добавлен")
-                else
-                    showToast(context, "Ошибка.\nПродукт не деьавлен\n${addSViewModel.message}")
-                showToastState.value = false
-            }
-
-        Button(
-            colors = ButtonDefaults.buttonColors(containerColor = Gold),
-            modifier = Modifier.fillMaxWidth(),
+        SubmitButton(
+            text = "Добавить продукт",
             enabled = validInputsState.value &&
                     selectedTypeInd.value != ProductType.NotSpecified.ordinal &&
                     (if (selectedTypeInd.value in listOf(1,2))
                         selectedVolumeInd.value != -1
                     else
-                        volumeState.value.isNotEmpty()),
-            onClick = { showAlertDialog.value = true }
+                        volumeState.value.isNotEmpty())
         ) {
-            Text(text = "Добавить продукт")
-
+            showAlertDialog.value = true
         }
+
+
     }
+
+    if (uiState.value is UiState.Loading) Loading()
 
 }

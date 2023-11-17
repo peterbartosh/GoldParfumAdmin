@@ -10,12 +10,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.goldparfumadmin.data.excel.ExcelDataLoader
 import com.example.goldparfumadmin.data.repository.FireRepository
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import com.example.goldparfumadmin.data.utils.showToast
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.math.min
@@ -26,14 +29,14 @@ const val TAG = "AddMViewModel"
 @HiltViewModel
 class AddMViewModel @Inject constructor(private val repository: FireRepository)  : ViewModel() {
 
-    val isLoading = mutableStateOf(false)
-    val isSuccess = mutableStateOf(false)
+    private val _uiState = MutableStateFlow<UiState>(UiState.NotInitialized())
+    var uiState : StateFlow<UiState> = _uiState
+
     val fileRowsAmount = mutableStateOf(0)
 
     val progressState = mutableStateOf(0)
 
     @Synchronized fun incrementProgress(){ progressState.value++ }
-
 
     fun getName(uri: Uri, context: Context, type : ProductType) : String {
         return ExcelDataLoader(context = context, uri = uri, productType = type).getFileName()
@@ -43,20 +46,11 @@ class AddMViewModel @Inject constructor(private val repository: FireRepository) 
         uri: Uri,
         context : Context,
         type : ProductType,
-        volume : Double?,
-        dollarCurrency : String
+        volume : Double?
     ) = viewModelScope.launch(Dispatchers.IO) {
 
-        isLoading.value = true
+        _uiState.value = UiState.Loading()
         progressState.value = 0
-
-
-        val currency = try {
-            dollarCurrency.replace(",", ".").trim().toDouble()
-        } catch (e : Exception){
-            Log.d(TAG, "addAll: $e")
-            3.29
-        }
 
         val createStateAmount = mutableStateOf(0)
         val parseFailedAmount = mutableStateOf(0)
@@ -65,20 +59,9 @@ class AddMViewModel @Inject constructor(private val repository: FireRepository) 
 
         fileRowsAmount.value = excelDataLoader.getRowsAmount() ?: 0
 
-        //parser.parse(volume = volume, type = type, scope = this)
-
         val time1 = measureTimeMillis {
-            //volume?.let { vol ->
-            excelDataLoader.parse(volume = volume, scope = this, dollarCurrency = currency)
-            //}
+            excelDataLoader.parse(volume = volume, scope = this)
         }
-
-
-
-        //Log.d("TIME_TEST", "addAll: ${excelDataLoader.products.map { it == null }}")
-
-        //showToast(context, "Не преобразовано продуктов - ${excelDataLoader.errorsCounter.get()}")
-
 
         delay(1000)
 
@@ -95,18 +78,6 @@ class AddMViewModel @Inject constructor(private val repository: FireRepository) 
             }
         }
 
-//        map.forEach { (key, value) ->
-//            Log.d("KISHIOJ", "$key : ${value.size}")
-//        }
-//
-//        excelDataLoader.products.mapIndexed {i, v ->
-//            Log.d("SKOAHUSI", "$i: ${v.id}")
-//        }
-
-//        val data = excelDataLoader.products.sortedBy { it.id?.split(".")?.last()?.toInt() }
-//            .joinToString("") { it.id.toString() + " " + it.brand.toString() + "\n" }
-//
-//        Log.d("DKJIOJS", data)
 
         Log.d("TIME_TEST", "time 1 = $time1 ms")
 
@@ -136,11 +107,12 @@ class AddMViewModel @Inject constructor(private val repository: FireRepository) 
 
         val min = min(createStateAmount.value, parseFailedAmount.value)
 
-        if (min != 0)
+        _uiState.value = if (min != 0) {
             showToast(context, "Не добавлено $min позиций")
-
-
-        isLoading.value = false
+            UiState.Failure()
+        } else {
+            UiState.Success()
+        }
     }
 
 }

@@ -43,7 +43,8 @@ import androidx.compose.ui.unit.sp
 import com.example.goldparfumadmin.data.model.Order
 import com.example.goldparfumadmin.data.model.OrderProduct
 import com.example.goldparfumadmin.data.utils.OrderStatus
-
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun OrderRow(
@@ -62,132 +63,151 @@ fun OrderRow(
         mutableStateOf(false)
     }
 
-        Box(
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .padding(5.dp)
+            .clickable {
+                if (selected) selectedOrder.value = -1 else selectedOrder.value = ind
+                selected = !selected
+            }
+            .border(
+                width = if (selected) 3.dp else 1.dp,
+                color = if (selected) Color.Green else Color.LightGray
+            )
+    ) {
+
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .wrapContentHeight()
-                .padding(5.dp)
-                .clickable {
-                    if (selected) selectedOrder.value = -1 else selectedOrder.value = ind
-                    selected = !selected
-                }
-                .border(
-                    width = if (selected) 3.dp else 1.dp,
-                    color = if (selected) Color.Green else Color.LightGray
-                )
+                .wrapContentHeight(),
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
+
+            Column(
+                modifier = Modifier
+                    .wrapContentWidth()
+                    .wrapContentHeight()
+                    .padding(10.dp)
+            ) {
+
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(text = order.id?.toString() ?: "ID не найден", fontSize = 10.sp)
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(text = order.number?.toString() ?: "Номер заказа не найден", fontSize = 10.sp)
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(text = order.address?.toString() ?: "Адрес не найден", fontSize = 10.sp)
+                Spacer(modifier = Modifier.height(5.dp))
+                Text(text = order.status?.toString() ?: "Статус не найден", fontSize = 10.sp)
+                Spacer(modifier = Modifier.height(5.dp))
+                order.date?.toDate()?.let { date ->
+                    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd, HH:mm:ss")
+                    val local = date.toInstant().atZone(ZoneId.of("UTC+03:00"))?.toLocalDateTime()
+                    Text(
+                        text = local?.format(formatter) ?: "Дата не найдена",
+                        fontSize = 10.sp
+                    )
+                    Spacer(modifier = Modifier.height(5.dp))
+                }
+            }
 
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .wrapContentHeight(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                    .wrapContentWidth()
+                    .padding(10.dp)
             ) {
 
                 Column(
                     modifier = Modifier
-                        .wrapContentWidth()
-                        .wrapContentHeight()
-                        .padding(10.dp)
+                        .wrapContentWidth(),
+                    horizontalAlignment = Alignment.End
                 ) {
 
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(text = order.id.toString(), fontSize = 10.sp)
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(text = order.number.toString(), fontSize = 10.sp)
-                    Spacer(modifier = Modifier.height(5.dp))
-                    Text(text = order.address.toString(), fontSize = 10.sp)
-                    Spacer(modifier = Modifier.height(5.dp))
-
+                    orderProducts.forEach { orderProduct ->
+                        Spacer(modifier = Modifier.height(3.dp))
+                        Text(
+                            text = "Идент. продукта: " + orderProduct.productId.toString(),
+                            fontSize = 10.sp
+                        )
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = "Кол-во (нал.): " + orderProduct.cashAmount.toString(),
+                            fontSize = 10.sp
+                        )
+                        Spacer(modifier = Modifier.height(1.dp))
+                        Text(
+                            text = "Кол-во (безнал.): " + orderProduct.cashlessAmount.toString(),
+                            fontSize = 10.sp
+                        )
+                        Divider(modifier = Modifier.width(30.dp))
+                    }
                 }
 
-                Row(
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(
                     modifier = Modifier
-                        .wrapContentWidth()
-                        .padding(10.dp)
+                        .wrapContentWidth().fillMaxHeight(),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
 
-                    Column(
-                        modifier = Modifier
-                            .wrapContentWidth(),
-                        horizontalAlignment = Alignment.End
-                    ) {
 
-                        orderProducts.forEach { orderProduct ->
-                            Spacer(modifier = Modifier.height(3.dp))
-                            Text(text = "Идент. продукта: " + orderProduct.productId.toString(), fontSize = 10.sp)
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(text = "Кол-во (нал.): " + orderProduct.cashAmount.toString(), fontSize = 10.sp)
-                            Spacer(modifier = Modifier.height(1.dp))
-                            Text(text = "Кол-во (безнал.): " + orderProduct.cashlessAmount.toString(), fontSize = 10.sp)
-                            Divider(modifier = Modifier.width(30.dp))
-                        }
+                    IconButton(
+                        enabled = selected,
+                        modifier = Modifier.size(30.dp),
+                        onClick = { showDropDown = true }
+                    ) {
+                        Icon(imageVector = Icons.Default.Edit, contentDescription = null)
                     }
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    if (selectedOrderStatus.value != -1 && selectedOrder.value == ind) {
 
-                    Column(
-                        modifier = Modifier
-                            .wrapContentWidth().fillMaxHeight(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
+                        Spacer(modifier = Modifier.height(10.dp))
 
-
-                        IconButton(
-                            enabled = selected,
-                            modifier = Modifier.size(30.dp),
-                            onClick = { showDropDown = true }
+                        Card(
+                            shape = CircleShape,
+                            modifier = Modifier.wrapContentSize(),
+                            colors = CardDefaults.cardColors(
+                                contentColor = Color.Green,
+                                containerColor = MaterialTheme.colorScheme.background
+                            ),
+                            border = BorderStroke(2.dp, Color.Green)
                         ) {
-                            Icon(imageVector = Icons.Default.Edit, contentDescription = null)
-                        }
-
-                        if (selectedOrderStatus.value != -1 && selectedOrder.value == ind){
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            Card(
-                                shape = CircleShape,
-                                modifier = Modifier.wrapContentSize(),
-                                colors = CardDefaults.cardColors(
-                                    contentColor = Color.Green,
-                                    containerColor = MaterialTheme.colorScheme.background
-                                ),
-                                border = BorderStroke(2.dp, Color.Green)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.size(30.dp)
                             ) {
-                                Box(contentAlignment = Alignment.Center, modifier = Modifier.size(30.dp)) {
-                                    Text(
-                                        text = (selectedOrderStatus.value + 1).toString(),
-                                        fontSize = 15.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                }
+                                Text(
+                                    text = (selectedOrderStatus.value + 1).toString(),
+                                    fontSize = 15.sp,
+                                    textAlign = TextAlign.Center
+                                )
                             }
-
                         }
-
                     }
-                }
-            }
-        }
-
-
-        Box {
-            DropdownMenu(
-                modifier = Modifier.wrapContentWidth(),
-                expanded = showDropDown,
-                onDismissRequest = { showDropDown = false }) {
-                Column(modifier = Modifier.wrapContentWidth()) {
-                    OrderStatus.values().forEachIndexed { ind, status ->
-                        Text(text = (ind + 1).toString() + ") " + status.name,
-                             fontSize = 20.sp,
-                             modifier = Modifier.clickable {
-                                 showDropDown = false
-                                 selectedOrderStatus.value = ind
-                             })
-                    }
-                    //Divider()
                 }
             }
         }
     }
+
+
+    Box {
+        DropdownMenu(
+            modifier = Modifier.wrapContentWidth(),
+            expanded = showDropDown,
+            onDismissRequest = { showDropDown = false }) {
+            Column(modifier = Modifier.wrapContentWidth()) {
+                OrderStatus.values().forEachIndexed { ind, status ->
+                    Text(text = (ind + 1).toString() + ") " + status.name,
+                         fontSize = 20.sp,
+                         modifier = Modifier.clickable {
+                             showDropDown = false
+                             selectedOrderStatus.value = ind
+                         })
+                }
+            }
+        }
+    }
+}
 

@@ -52,8 +52,6 @@ class ExcelFileGeneratorImpl(
                         splitting = false
 
                         orders[vol]?.get(rowId.toString().trim())?.let { orderPair ->
-                            Log.d("DASIOHIUF", "$ind, $rowId, ${orderPair.first} : ${orderPair.second}")
-
                             newSheet?.getRow((ind + 5))?.getCell(firstCellInd)
                                 ?.setCellValue(orderPair.first.toDouble() + orderPair.second.toDouble())
                         }
@@ -61,7 +59,6 @@ class ExcelFileGeneratorImpl(
                     } catch (e: Exception) {
                         Log.d(TAG, "generate: ${e.message}")
                         if (!splitting) {
-                            Log.d("DONE_TAG", "parse: $ind) $curVolumeInd")
                             curVolumeInd++
                         }
                         splitting = true
@@ -69,23 +66,16 @@ class ExcelFileGeneratorImpl(
                 }
             }
 
-            Log.d("FIOSHIASPS", "generate: start")
-
-
             val path =
                 Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
 
             val file = File(path, "/$fileName$fileFormat")
 
-            Log.d("FIOSHIASPS", "generate: ${file.name}")
-
             newWorkbook?.write(file.outputStream())
             newWorkbook?.close()
 
-            Log.d("FIOSHIASPS", "generate: succ")
-
         } catch (e: Exception) {
-            Log.d("FATAL_TAG", "generateCompact: ${e.message}")
+            Log.d(TAG, "generateCompact: ${e.message}")
         }
     }
 
@@ -95,12 +85,6 @@ class ExcelFileGeneratorImpl(
         orders : Map<String, PairInt>
     ){
         try {
-
-            orders.forEach{
-                Log.d("UIHUIGF1", "${it.key}: ${it.value.first} ${it.value.second}")
-            }
-
-            Log.d("UIHUIGF2", "${uri.path} ${uri.encodedPath}")
 
             var workbook: XSSFWorkbook? = null
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -145,7 +129,7 @@ class ExcelFileGeneratorImpl(
             newWorkbook?.close()
 
         } catch (e : Exception){
-            Log.d(TAG, "$e ${e.message}")
+            Log.d(TAG, "$e")
         }
 
     }
@@ -157,13 +141,6 @@ class ExcelFileGeneratorImpl(
         orders : Map<String, PairInt>
     ){
         try {
-
-            orders.forEach{
-                Log.d("UIHUIGF1", "${it.key}: ${it.value.first} ${it.value.second}")
-            }
-
-            Log.d("UIHUIGF2", "${uri.path} ${uri.encodedPath}")
-
             var workbook: XSSFWorkbook? = null
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 workbook = XSSFWorkbook(inputStream)
@@ -181,54 +158,24 @@ class ExcelFileGeneratorImpl(
 
                     val orderPair = orders[(ind+1).toString()] ?: throw Exception("not found")
 
-
                     newSheet?.getRow(ind)?.getCell(firstCellInd)
                         ?.setCellValue(orderPair.first.toDouble())
                     newSheet?.getRow(ind)?.getCell(secondCellInd)
                         ?.setCellValue(orderPair.second.toDouble())
-
 
                 } catch (e: Exception) {
                     Log.d(TAG, "generate: $e ${e.message}")
                 }
             }
 
-
             val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
             val file = File(path, "/$fileName$fileFormat")
 
             newWorkbook?.write(file.outputStream())
             newWorkbook?.close()
-
-            //Log.d("UIHUIGF", file.path)
-
         } catch (e : Exception){
-            Log.d(TAG, "$e ${e.message}")
+            Log.d(TAG, "$e")
         }
 
     }
-
-//    fun getFileName(): String {
-//
-//        //withContext(Dispatchers.IO) {
-//
-//        val cursor = context.contentResolver.query(
-//            uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null
-//        )
-//
-//        return if (cursor != null) {
-//            cursor.moveToFirst()
-//            if (cursor.count == 0)
-//                showToast(context, "The given Uri doesn't represent any file")
-//            val displayNameColumnIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-//            val displayName = cursor.getString(displayNameColumnIndex)
-//            cursor.close()
-//            displayName
-//        } else {
-//            showToast(context, "Failed to obtain cursor from the content resolver")
-//            "not found"
-//        }
-//        // }
-//    }
-
 }

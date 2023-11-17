@@ -1,46 +1,54 @@
 package com.example.goldparfumadmin.presentation.single.edit.ui
 
-import android.content.Context
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.goldparfumadmin.data.model.Product
 import com.example.goldparfumadmin.data.repository.FireRepository
-import com.example.goldparfumadmin.data.utils.showToast
+import com.example.goldparfumadmin.data.utils.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @HiltViewModel
 class EditSViewModel @Inject constructor(private val repository: FireRepository)  : ViewModel() {
 
+    private val _uiState = MutableStateFlow<UiState>(UiState.NotInitialized())
+    var uiState : StateFlow<UiState> = _uiState
 
-    val isLoading = mutableStateOf(false)
-    var isSuccess = mutableStateOf(false)
-    var product : MutableStateFlow<Product?> = MutableStateFlow(null)
+    private val _product = MutableStateFlow<Product?>(null)
+    var product : StateFlow<Product?> = _product
 
-    fun updateProduct(productId : String, updatedProduct: Product) = viewModelScope.launch {
-        isLoading.value = true
+    fun updateProduct(
+        productId : String,
+        updatedProduct: Product,
+        onSuccess: () -> Unit,
+        onFailure: (String) -> Unit
+    ) = viewModelScope.launch {
+        _uiState.value = UiState.Loading()
         val updatedResult = repository.updateProduct(productId, updatedProduct)
-        isSuccess.value = updatedResult.isSuccess
-        isLoading.value = false
+        _uiState.value = if (updatedResult.isSuccess)
+            UiState.Success().also { onSuccess() }
+        else
+            UiState.Failure().also {
+                onFailure(updatedResult.exceptionOrNull()?.message.toString())
+            }
     }
 
-    fun findProduct(productId: String, context : Context) = viewModelScope.launch {
-        isSuccess.value = false
-        isLoading.value = true
-        product = MutableStateFlow(null)
-        withContext(Dispatchers.IO) {
-            repository.findProduct(productId)?.let { prod ->
-                product.emit(prod)
-                isSuccess.value = true
-            }
+    fun findProduct(
+        productId: String,
+        onFailure: (String) -> Unit
+    ) = viewModelScope.launch {
+        _uiState.value = UiState.Loading()
+        repository.findProduct(productId)?.let { prod ->
+            _product.value = prod
+            _uiState.value = UiState.Success()
+            return@launch
         }
-        if (!isSuccess.value) showToast(context, "Ошибка.\nПродукт не найден")
-        isLoading.value = false
+
+        _uiState.value = UiState.Failure()
+        onFailure("Продукт не найден")
     }
 
 }

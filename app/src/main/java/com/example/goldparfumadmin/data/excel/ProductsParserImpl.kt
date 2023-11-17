@@ -18,8 +18,8 @@ class ProductsParserImpl(private val productType: ProductType) : ProductsParser 
 
     private val defaultValue = 0.0
 
-    override fun initialize(sheet: Sheet?, volume: Double?, dollarCurrency : Double) : List<Double> {
-        val pricesParser = PricesParserImpl(dollarCurrency = dollarCurrency)
+    override fun initialize(sheet: Sheet?, volume: Double?) : List<Double> {
+        val pricesParser = PricesParserImpl()
         this.prices = pricesParser.parsePrice(sheet, productType, volume)
         return this.prices.keys.toList()
     }
@@ -152,8 +152,6 @@ class ProductsParserImpl(private val productType: ProductType) : ProductsParser 
                     type = ProductType.Licensed.name,
                     isOnHand = !isFilled
                 )
-
-                //Log.d("PROD_TAG", "parseOther: $id) ${product.brand}")
 
                 product
             }

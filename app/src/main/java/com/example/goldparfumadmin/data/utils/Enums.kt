@@ -1,6 +1,5 @@
 package com.example.goldparfumadmin.data.utils
 
-
 enum class OrderStatus{
     Processing, Accepted, Delivering, Succeed, Canceled
 }
@@ -25,7 +24,7 @@ enum class ProductType{
         Probe -> "Пробники"
         Auto -> "Авто"
         Diffuser -> "Диффузоры"
-        Compact -> "Компакт"    // issues
+        Compact -> "Компакт"
         Licensed -> "Лицензионные"
         Lux -> "Люкс"
         Selectives -> "Селективы"
@@ -41,3 +40,10 @@ enum class ProductType{
 }
 
 fun List<Double>.getSafe(ind: Int) : Double? = if (ind in this.indices) this[ind] else null
+
+sealed class UiState(){
+    class Success() : UiState()
+    class Failure() : UiState()
+    class Loading() : UiState()
+    class NotInitialized() : UiState()
+}

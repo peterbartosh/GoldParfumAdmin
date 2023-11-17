@@ -1,5 +1,7 @@
 package com.example.goldparfumadmin.presentation.components
 
+import android.content.Context
+import android.net.ConnectivityManager
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,7 +28,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +41,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.goldparfumadmin.R
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.theme.Gold
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -63,15 +71,44 @@ fun Loading(progress : Int? = null, maxValue : MutableState<Int>? = null) {
 }
 
 @Composable
-fun AlertMessage(isAdd : Boolean) {
-    Text(text = if (isAdd)
-        stringResource(id = R.string.add_multiple_alert_message)
-    else
-        stringResource(id = R.string.delete_multiple_alert_message),
-         fontSize = 12.sp,
-         color = Color.Red,
-         textAlign = TextAlign.Center
+fun AlertMessage(stringId: Int) {
+    Text(
+        text = stringResource(id = stringId),
+        fontSize = 12.sp,
+        color = Color.Red,
+        textAlign = TextAlign.Center
     )
+}
+
+@Composable
+fun SubmitButton(
+    text: String,
+    enabled: Boolean,
+    checkInternetConnection: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val context = LocalContext.current
+
+    Button(
+        enabled = enabled,
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .padding(bottom = 5.dp),
+        onClick = {
+            if (checkInternetConnection) {
+                val manager =
+                    context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                val connected = manager.activeNetwork
+                if (connected == null)
+                    showToast(context, "Ошибка.\nВы не подключены к сети.")
+                else
+                    onClick()
+            } else onClick()
+        }
+    ) {
+        Text(text = text)
+    }
 }
 
 @Composable
@@ -209,42 +246,83 @@ fun Label(text : String) {
 @Composable
 fun MaintenanceOption(showStartMaintenance: MutableState<Boolean?>, onClick: suspend (Boolean) -> Unit) {
     when (showStartMaintenance.value){
-        true -> MaintenanceIcon(
-            tint = Gold,
+        null -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Gold, strokeWidth = 3.dp)
+        else -> MaintenanceIcon(
             showStartMaintenance = showStartMaintenance,
             onClick = onClick
         )
-        false -> MaintenanceIcon(
-            tint = Color.White,
-            showStartMaintenance = showStartMaintenance,
-            onClick = onClick
-        )
-        else -> CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Gold, strokeWidth = 3.dp)
     }
 }
 
 @Composable
-fun MaintenanceIcon(tint: Color, showStartMaintenance: MutableState<Boolean?>, onClick: suspend (Boolean) -> Unit) {
+fun MaintenanceIcon(
+    showStartMaintenance: MutableState<Boolean?>,
+    onClick: suspend (Boolean) -> Unit
+) {
 
-    Icon(
+    val context = LocalContext.current
+
+    IconButton(
         modifier = Modifier
             .size(40.dp)
-            .border(width = 2.dp, color = tint, shape = CircleShape)
-            .clip(CircleShape)
-            .clickable {
+            .shadow(elevation = 1.dp, shape = CircleShape)
+            .clip(CircleShape),
+        colors = IconButtonDefaults.iconButtonColors(
+            containerColor = if (showStartMaintenance.value == true)
+                Color(0xFF548EB3)
+        else
+            MaterialTheme.colorScheme.background
+        ),
+        onClick = {
+            val manager =
+                context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+            val connected = manager.activeNetwork
+            if (connected == null)
+                showToast(context, "Ошибка.\nВы не подключены к сети.")
+            else {
                 val curValue = showStartMaintenance.value
                 showStartMaintenance.value = null
                 curValue?.let {
-                    CoroutineScope(Job() + Dispatchers.IO).launch {
-                        onClick(!it)
-                    }.invokeOnCompletion {
-                        showStartMaintenance.value = !curValue
-                    }
+                    CoroutineScope(Job() + Dispatchers.IO)
+                        .launch {
+                            onClick(!it)
+                        }
+                        .invokeOnCompletion {
+                            showStartMaintenance.value = !curValue
+                        }
                 }
-            },
-        painter = painterResource(id = R.drawable.ic_launcher_foreground),
-        contentDescription = "main logo",
-        tint = tint
-    )
-
+            }
+        }
+    ) {
+        val color = if (showStartMaintenance.value == true)
+            Gold
+        else
+            MaterialTheme.colorScheme.onBackground
+        Icon(
+            modifier = Modifier
+                .size(40.dp)
+                .border(
+                    width = 2.dp,
+                    color = color,
+                    shape = CircleShape
+                )
+                .clip(CircleShape)
+                .clickable {
+                    val curValue = showStartMaintenance.value
+                    showStartMaintenance.value = null
+                    curValue?.let {
+                        CoroutineScope(Job() + Dispatchers.IO)
+                            .launch {
+                                onClick(!it)
+                            }
+                            .invokeOnCompletion {
+                                showStartMaintenance.value = !curValue
+                            }
+                    }
+                },
+            painter = painterResource(id = R.drawable.ic_launcher_foreground),
+            contentDescription = "main logo",
+            tint = color
+        )
+    }
 }

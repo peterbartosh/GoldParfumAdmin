@@ -3,9 +3,6 @@ package com.example.goldparfumadmin.presentation.orders.collect_orders.ui
 import android.content.Context
 import android.os.Environment
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -14,10 +11,13 @@ import com.example.goldparfumadmin.data.model.Order
 import com.example.goldparfumadmin.data.model.OrderProduct
 import com.example.goldparfumadmin.data.repository.FireRepository
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -28,25 +28,18 @@ data class PairInt(var first : Int, var second : Int)
 @HiltViewModel
 class OrderCollectingViewModel @Inject constructor(private val repository: FireRepository)  : ViewModel() {
 
+    private val _uiState = MutableStateFlow<UiState>(UiState.NotInitialized())
+    var uiState : StateFlow<UiState> = _uiState
 
-    var isLoading by mutableStateOf(false)
+    fun run(context: Context) = viewModelScope.launch {
 
-    fun run(
-        folderPath: String,
-        context: Context
-    ) = viewModelScope.launch {
-
-        isLoading = true
+        _uiState.value = UiState.Loading()
 
         val activeOrders = getActiveOrders()
 
         val updateResult = repository.updateActiveOrders()
 
         val groupedOrders = groupOrders(activeOrders)
-
-        groupedOrders.forEach{
-            Log.d("SJOIJIOA", "${it.key.name}: ${it.value.map { pr -> pr.key + " - (" + pr.value.first + ", " + pr.value.second + ")" }}")
-        }
 
         val deferreds = groupedOrders.map { entry ->
             async{
@@ -67,16 +60,8 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
                             }
                         }
 
-                        map.forEach {
-                            Log.d(
-                                "ZLLPKDOPAJDFO",
-                                "${it.key} ${it.value.map { pr -> "${pr.key} - (" + pr.value.first + ", " + pr.value.second + ")" }}"
-                            )
-                        }
-
                         map.forEach { en ->
                             generateExcelFile(
-                                folderPath = folderPath,
                                 testerVolume = en.key,
                                 probeVolume = null,
                                 context = context,
@@ -106,7 +91,6 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
 
                         map.forEach { en ->
                             generateExcelFile(
-                                folderPath = folderPath,
                                 testerVolume = null,
                                 probeVolume = en.key,
                                 context = context,
@@ -131,20 +115,13 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
                             try {
                                 val volume = mem.key.split(".")[1]
                                 val ind = mem.key.split(".").last().trim()
-                                Log.d("SJOIJIOA", "$volume: $ind - ${mem.value.first} ${mem.value.second}")
                                 compactOrders[volume]?.put(ind, mem.value)
                             } catch (e: Exception) {
                                 Log.d("ERROR_ERROR", "run: ${e.message}")
                             }
                         }
 
-                        compactOrders.forEach {
-                            Log.d("SJOIJIOA", "${it.key}: ${it.value.values.joinToString { pair -> 
-                                pair.first.toString() + ", " + pair.second.toString() }}")
-                        }
-
                         generateExcelFile(
-                            folderPath = folderPath,
                             productType = entry.key,
                             context = context,
                             orders = null,
@@ -156,7 +133,6 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
 
                     else -> {
                         generateExcelFile(
-                            folderPath = folderPath,
                             productType = entry.key,
                             context = context,
                             orders = entry.value,
@@ -171,7 +147,7 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
 
         deferreds.awaitAll()
 
-        isLoading = false
+        _uiState.value = UiState.Success()
     }
 
     private suspend fun getActiveOrders() : List<OrderProduct> {
@@ -223,7 +199,6 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
 
                 map.forEach { entry ->
                     repository.findProduct(entry.key)?.type?.let { type ->
-                        //Log.d("SIJDI", "$type: ${entry.key}, ${entry.value}")
                         val productType = ProductType.valueOf(type)
                         if (returnMap[productType] == null) returnMap[productType] = mutableMapOf()
                         returnMap[productType]?.put(entry.key, entry.value)
@@ -241,14 +216,12 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
 
 
     private suspend fun generateExcelFile(
-        folderPath: String,
         testerVolume: Double?,
         probeVolume: Double?,
         context: Context,
         productType: ProductType,
         orders: Map<String, PairInt>?,
         compactOrders: Map<String, Map<String, PairInt>>?
-        //= mapOf("1" to Pair(1, 2), "2" to Pair(2, 3))
     ) {
         withContext(Dispatchers.IO) {
 
@@ -283,11 +256,9 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
             }
 
             indices?.let { inds ->
-                Log.d("USHDAGDS", "generateExcelFile: $folderPath/$fileName")
-
                 val downloads =
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-                val telegram = downloads.listFiles { dir, name -> name == "Telegram" }?.first()
+                val telegram = downloads.listFiles { _, name -> name == "Telegram" }?.first()
 
                 val excelFiles = telegram?.listFiles()
 
@@ -324,9 +295,4 @@ class OrderCollectingViewModel @Inject constructor(private val repository: FireR
             }
         }
     }
-
-//    fun getFileName(uri: Uri, context: Context) : String {
-//        val generator = ExcelFileGeneratorImpl(uri, context, )
-//        return generator.getFileName()
-//    }
 }

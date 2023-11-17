@@ -1,5 +1,7 @@
 package com.example.goldparfumadmin.presentation
 
+import android.content.Context
+import android.net.ConnectivityManager
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -20,9 +22,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import com.example.goldparfumadmin.data.repository.FireRepository
+import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.black_list.navigation.addUserScreen
 import com.example.goldparfumadmin.presentation.black_list.navigation.deleteUserScreen
 import com.example.goldparfumadmin.presentation.black_list.navigation.navigateToAddUser
@@ -51,6 +55,8 @@ fun AdminNavHost(
     navController: NavHostController
 ) {
 
+    val context = LocalContext.current
+
     var showBackIcon by rememberSaveable {
         mutableStateOf(false)
     }
@@ -61,10 +67,19 @@ fun AdminNavHost(
     }
 
     LaunchedEffect(key1 = true){
-        showStartMaintenance.value = FireRepository.getIsBlockedForMaintenance()
+        val manager =
+            context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val connected = manager.activeNetwork
+        if (connected == null) {
+            showToast(context, "Ошибка.\nВы не подключены к сети.")
+        }
+        else
+        showStartMaintenance.value = FireRepository.getIsBlockedForMaintenance{message ->
+            showToast(context, message)
+        }
     }
 
-    navController.addOnDestinationChangedListener{ c, d, a ->
+    navController.addOnDestinationChangedListener{ _, d, _ ->
         showBackIcon = d.route != homeAdminRoute
     }
 

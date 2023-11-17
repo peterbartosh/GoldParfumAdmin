@@ -1,7 +1,6 @@
 package com.example.goldparfumadmin.presentation.multiple.add.ui
 
 import android.net.Uri
-import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -25,7 +25,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.goldparfumadmin.R
 import com.example.goldparfumadmin.data.utils.ProductType
+import com.example.goldparfumadmin.data.utils.UiState
 import com.example.goldparfumadmin.data.utils.getSafe
 import com.example.goldparfumadmin.data.utils.showToast
 import com.example.goldparfumadmin.presentation.components.AlertMessage
@@ -33,13 +35,15 @@ import com.example.goldparfumadmin.presentation.components.Label
 import com.example.goldparfumadmin.presentation.components.Loading
 import com.example.goldparfumadmin.presentation.components.OptionsList
 import com.example.goldparfumadmin.presentation.components.PickProductData
-import com.example.goldparfumadmin.presentation.single.add.ui.InputField
+import com.example.goldparfumadmin.presentation.components.SubmitButton
 import com.example.goldparfumadmin.presentation.single.add.ui.MyAlertDialog
 
 @Composable
 fun AddMScreen(addMViewModel: AddMViewModel) {
 
     val context = LocalContext.current
+
+    val uiState = addMViewModel.uiState.collectAsState()
 
     val showAlertDialog = remember {
         mutableStateOf(false)
@@ -49,12 +53,8 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
         mutableStateOf(ProductType.NotSpecified.ordinal)
     }
 
-    val selectedVolumeInd = remember {
+    val selectedVolumeInd = remember(selectedTypeInd.value) {
         mutableStateOf(-1)
-    }
-
-    val dollarCurrency = remember {
-        mutableStateOf("3.29")
     }
 
     val fileUri : MutableState<Uri?> = remember {
@@ -74,10 +74,8 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
     val validInputState = remember(
         selectedTypeInd.value,
         selectedVolumeInd.value,
-        fileUri.value,
-        dollarCurrency.value
+        fileUri.value
     ) {
-        Log.d("SELECT_IND_TEST", "AddMScreen: ${selectedVolumeInd.value}")
         mutableStateOf(
             selectedTypeInd.value != ProductType.NotSpecified.ordinal &&
                     (
@@ -87,8 +85,7 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
                                 true
                             )
                     &&
-                    fileUri.value != null &&
-                    dollarCurrency.value.replace(",", ".").trim().toDoubleOrNull() != null
+                    fileUri.value != null
         )
     }
 
@@ -99,11 +96,6 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
         verticalArrangement = Arrangement.SpaceBetween
     ) {
 
-
-
-        if (addMViewModel.isLoading.value)
-            Loading(addMViewModel.progressState.value, addMViewModel.fileRowsAmount)
-
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -113,20 +105,13 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
 
             Label(text = "Добавление новых продуктов")
 
-            AlertMessage(isAdd = true)
+            AlertMessage(stringId = R.string.add_multiple_alert_message)
 
             Spacer(modifier = Modifier.height(50.dp))
 
             val launcher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.GetContent(),
-                onResult = {
-                    fileUri.value = it
-                    Log.d("FILE_URI", "AddMScreen: ${fileUri.value?.path}" +
-                            " ${fileUri.value?.encodedPath} " +
-                            "${fileUri.value?.lastPathSegment}" +
-                            "${fileUri.value?.pathSegments}" +
-                            "")
-                }
+                onResult = { fileUri.value = it }
             )
 
             Row(
@@ -165,22 +150,12 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
                     selectedInd = selectedVolumeInd
                 )
             }
-
-            Spacer(modifier = Modifier.height(30.dp))
-
-            InputField(modifier = Modifier, valueState = dollarCurrency, label = "Курс доллара", enabled = true)
         }
 
 
 
-        Button(
-            enabled = validInputState.value,
-            modifier = Modifier
-                .fillMaxWidth()
-                .wrapContentHeight(),
-            onClick = { showAlertDialog.value = true }
-        ) {
-            Text(text = "Добавить продукты")
+        SubmitButton(text = "Добавить продукты", enabled = validInputState.value) {
+            showAlertDialog.value = true
         }
 
         if (showAlertDialog.value){
@@ -195,7 +170,6 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
                         addMViewModel.addAll(
                             uri = uri,
                             context = context,
-                            dollarCurrency = dollarCurrency.value,
                             type = type,
                             volume = volume
                         )
@@ -204,5 +178,8 @@ fun AddMScreen(addMViewModel: AddMViewModel) {
             )
         }
     }
+
+    if (uiState.value is UiState.Loading)
+        Loading(addMViewModel.progressState.value, addMViewModel.fileRowsAmount)
 }
 

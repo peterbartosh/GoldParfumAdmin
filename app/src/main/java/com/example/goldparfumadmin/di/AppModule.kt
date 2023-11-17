@@ -1,4 +1,4 @@
-package com.example.goldparfumadmin.data.di
+package com.example.goldparfumadmin.di
 
 import com.example.goldparfumadmin.data.repository.FireRepository
 import com.google.firebase.firestore.FirebaseFirestore

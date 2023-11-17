@@ -61,7 +61,6 @@ fun ActionCard(onClick : () -> Unit, title : String, imageVector : ImageVector, 
             )
             Spacer(modifier = Modifier.height(5.dp))
             Text(text = title, fontSize = 12.sp, textAlign = TextAlign.Center)
-           // Text(text = title.split(" ").last(), fontSize = 12.sp)
         }
     }
 
